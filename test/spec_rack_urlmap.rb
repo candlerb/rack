@@ -172,4 +172,46 @@ context "Rack::URLMap" do
     res["X-PathInfo"].should.equal "/"
     res["X-ScriptName"].should.equal ""
   end
+
+  specify "should route to default app correctly" do
+    map = Rack::URLMap.new(lambda { |env|
+                             [200,
+                              { "Content-Type" => "text/plain",
+                                "X-Position" => "root",
+                                "X-PathInfo" => env["PATH_INFO"],
+                                "X-ScriptName" => env["SCRIPT_NAME"]
+                              }, [""]]},
+                           "/foo" => lambda { |env|
+                             [200,
+                              { "Content-Type" => "text/plain",
+                                "X-Position" => "foo",
+                                "X-PathInfo" => env["PATH_INFO"],
+                                "X-ScriptName" => env["SCRIPT_NAME"]
+                              }, [""]]}
+                           )
+
+    res = Rack::MockRequest.new(map).get("/foo/bar")
+    res.should.be.ok
+    res["X-Position"].should.equal "foo"
+    res["X-PathInfo"].should.equal "/bar"
+    res["X-ScriptName"].should.equal "/foo"
+
+    res = Rack::MockRequest.new(map).get("/foo")
+    res.should.be.ok
+    res["X-Position"].should.equal "foo"
+    res["X-PathInfo"].should.equal ""
+    res["X-ScriptName"].should.equal "/foo"
+
+    res = Rack::MockRequest.new(map).get("/bar")
+    res.should.be.ok
+    res["X-Position"].should.equal "root"
+    res["X-PathInfo"].should.equal "/bar"
+    res["X-ScriptName"].should.equal ""
+
+    res = Rack::MockRequest.new(map).get("")
+    res.should.be.ok
+    res["X-Position"].should.equal "root"
+    res["X-PathInfo"].should.equal "/"
+    res["X-ScriptName"].should.equal ""
+  end
 end

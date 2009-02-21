@@ -3,6 +3,11 @@ module Rack
   # dispatches accordingly.  Support for HTTP/1.1 host names exists if
   # the URLs start with <tt>http://</tt> or <tt>https://</tt>.
   #
+  # If two arguments are passed, the first is the default app in the chain,
+  # and the second is the hash mapping urls to apps. In this case, if the
+  # url doesn't match anything in the hash, the request is passed to the
+  # default app instead.
+  #
   # URLMap modifies the SCRIPT_NAME and PATH_INFO such that the part
   # relevant for dispatch is in the SCRIPT_NAME, and the rest in the
   # PATH_INFO.  This should be taken care of when you need to
@@ -12,7 +17,15 @@ module Rack
   # first, since they are most specific.
 
   class URLMap
-    def initialize(map)
+    def initialize(map_or_app, map=nil)
+      if map
+        @default = map_or_app
+      else
+        map = map_or_app
+        @default = lambda { |env|
+          [404, {"Content-Type" => "text/plain"}, ["Not Found: #{env["PATH_INFO"].to_s.squeeze("/")}"]]
+        }
+      end
       @mapping = map.map { |location, app|
         if location =~ %r{\Ahttps?://(.*?)(/.*)}
           host, location = $1, $2
@@ -44,7 +57,7 @@ module Rack
             'SCRIPT_NAME' => (script_name + location),
             'PATH_INFO'   => path[location.size..-1]))
       }
-      [404, {"Content-Type" => "text/plain"}, ["Not Found: #{path}"]]
+      @default.call(env)
     end
   end
 end
